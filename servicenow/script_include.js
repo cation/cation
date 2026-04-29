@@ -4,32 +4,38 @@
  * Access: public
  *
  * GlideAjax methods called by the user_phone_info UI page.
+ * The page is opened from the Incident form via a UI Action that
+ * passes the incident's caller_id as sysparm_user_id.
+ *
  * Replace 'your.property.name' with the actual sys_property key.
  */
 var UserPhoneInfoAjax = Class.create();
 UserPhoneInfoAjax.prototype = Object.extendsObject(AbstractAjaxProcessor, {
 
     /**
-     * Returns the value of an arbitrary sys_user field for the logged-in user.
-     * Used to populate the live preview when the dropdown selection changes.
+     * Returns the value of an arbitrary sys_user field for a given user.
+     * Called on dropdown change to populate the live preview.
      *
-     * Params: sysparm_field_name — the sys_user column name to read
+     * Params:
+     *   sysparm_user_id    — sys_id of the user to read (the incident caller_id)
+     *   sysparm_field_name — the sys_user column name to read
      */
     getFieldValue: function () {
+        var userId    = this.getParameter('sysparm_user_id')    || '';
         var fieldName = this.getParameter('sysparm_field_name') || '';
-        if (!fieldName) { return ''; }
+        if (!userId || !fieldName) { return ''; }
 
         var gr = new GlideRecord('sys_user');
-        gr.get(gs.getUserID());
+        gr.get(userId);
         return (gr.isValidRecord() ? gr.getValue(fieldName) : '') || '';
     },
 
     /**
-     * Submit function — accepts the user ID and resolves the field value
-     * from the user record, then returns both for downstream processing.
+     * Submit function — accepts the caller's user ID and the selected field
+     * name, resolves the field value from the user record, and returns both.
      *
      * Params:
-     *   sysparm_user_id    — sys_user sys_id of the logged-in user
+     *   sysparm_user_id    — sys_id of the caller (from the incident caller_id)
      *   sysparm_field_name — the selected sys_user field name
      *
      * Returns JSON: { success, userId, fieldName, fieldValue } | { success, error }
@@ -51,8 +57,8 @@ UserPhoneInfoAjax.prototype = Object.extendsObject(AbstractAjaxProcessor, {
 
         // ── Add your business logic here ──────────────────────────────
         // At this point you have:
-        //   userId     — the user's sys_id
-        //   fieldValue — the value of the selected field for that user
+        //   userId     — the caller's sys_id
+        //   fieldValue — the value of the selected field for that caller
         // Example: gs.setProperty('your.property.name', fieldName);
         // ─────────────────────────────────────────────────────────────
 
@@ -66,7 +72,6 @@ UserPhoneInfoAjax.prototype = Object.extendsObject(AbstractAjaxProcessor, {
 
     /**
      * Returns the currently configured sys_user field name from sys_property.
-     * Useful if the client needs to know the active configuration.
      *
      * Params: sysparm_prop_name — the sys_property key to read
      */

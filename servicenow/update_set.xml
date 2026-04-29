@@ -14,16 +14,16 @@
 
   <!-- ================================================================
        1. UI Page  (sys_ui_page)
-       URL after import:  /user_phone_info.do
+       Opened by the UI Action below via g_modal.showFrame().
+       The caller_id from the Incident is passed as sysparm_caller_id.
 
        How it works:
-         - Queries sys_dictionary for phone/mobile fields on sys_user
-           and renders them as a dropdown (pre-selecting the current
-           sys_property value).
-         - Changing the dropdown previews the field value for the
-           logged-in user via GlideAjax getFieldValue.
-         - Submit calls GlideAjax submitPhoneField(userId, fieldName),
-           which resolves the field value server-side and returns JSON.
+         - Reads sysparm_caller_id from the URL (validated as a sys_id).
+         - Looks up the caller's name/username from sys_user.
+         - Queries sys_dictionary for phone/mobile/telephone fields and
+           renders them as a dropdown, pre-selecting the sys_property value.
+         - Changing the dropdown previews the caller's value via GlideAjax.
+         - Submit calls submitPhoneField(userId, fieldName) server-side.
        ================================================================ -->
   <sys_ui_page action="INSERT_OR_UPDATE">
     <sys_id>1f8d3a0e4b2c7e9d0f1a3b5c7e9d1f8a</sys_id>
@@ -33,7 +33,7 @@
     <sys_updated_on>2026-04-29 00:00:00</sys_updated_on>
     <sys_scope display_value="Global">global</sys_scope>
     <name>user_phone_info</name>
-    <description>Dropdown of sys_user phone/mobile fields; previews the logged-in user&apos;s value on change; submits user ID and field value to the server.</description>
+    <description>Opened from the Incident form; reads sysparm_caller_id from the URL and displays a phone-field selector for that caller&apos;s sys_user record.</description>
     <direct>false</direct>
     <category>general</category>
 
@@ -118,6 +118,28 @@
   .snc-result-error h2 { color: #b0321b; }
 </style>
 
+<g:evaluate var="jv_caller_id">
+  var raw = RP.getParameterValue('sysparm_caller_id') || '';
+  (/^[0-9a-f]{32}$/.test(raw)) ? raw : '';
+</g:evaluate>
+
+<g:evaluate var="jv_caller_name">
+  var id = '${jv_caller_id}';
+  if (!id) {
+    jelly.put('jv_caller_username', '');
+    '';
+  } else {
+    var gr = new GlideRecord('sys_user');
+    if (gr.get(id)) {
+      jelly.put('jv_caller_username', gr.getValue('user_name') || '');
+      gr.getDisplayValue('name') || '';
+    } else {
+      jelly.put('jv_caller_username', '');
+      '';
+    }
+  }
+</g:evaluate>
+
 <g:evaluate var="jv_phone_field">
   gs.getProperty('your.property.name', 'phone');
 </g:evaluate>
@@ -151,52 +173,63 @@
   html;
 </g:evaluate>
 
-<g:evaluate var="jv_user_id">
-  gs.getUserID();
-</g:evaluate>
-
 <div class="snc-info-page">
-  <h1>User Phone Information</h1>
+  <h1>Caller Phone Information</h1>
 
-  <div class="snc-info-card">
-    <h2>Select Phone Field</h2>
-    <div class="snc-field-row">
-      <span class="snc-field-label">sys_user field</span>
-      <select id="phone-field-select">
-        <g2:no_escape value="${jv_select_options}"/>
-      </select>
-    </div>
-    <div class="snc-field-row" id="preview-row">
-      <span class="snc-field-label">Current value</span>
-      <span id="field-value-preview" class="snc-field-value"></span>
-    </div>
-  </div>
+  <j:choose>
+    <j:when test="${empty(jv_caller_id)}">
+      <div class="snc-info-card snc-result-error">
+        <h2>Missing Caller</h2>
+        <p style="font-size:0.9rem;color:#637887;margin:0">
+          No caller ID was provided. Open this page from the
+          Incident form using the &quot;View Caller Phone&quot; UI Action.
+        </p>
+      </div>
+    </j:when>
 
-  <div class="snc-info-card">
-    <h2>Logged-in User</h2>
-    <div class="snc-field-row">
-      <span class="snc-field-label">Name</span>
-      <span class="snc-field-value">${gs.getUserDisplayName()}</span>
-    </div>
-    <div class="snc-field-row">
-      <span class="snc-field-label">Username</span>
-      <span class="snc-field-value">${gs.getUserName()}</span>
-    </div>
-  </div>
+    <j:otherwise>
+      <div class="snc-info-card">
+        <h2>Select Phone Field</h2>
+        <div class="snc-field-row">
+          <span class="snc-field-label">sys_user field</span>
+          <select id="phone-field-select">
+            <g2:no_escape value="${jv_select_options}"/>
+          </select>
+        </div>
+        <div class="snc-field-row" id="preview-row">
+          <span class="snc-field-label">Current value</span>
+          <span id="field-value-preview" class="snc-field-value"></span>
+        </div>
+      </div>
 
-  <button class="snc-submit-btn" id="submit-btn" type="button">Submit</button>
+      <div class="snc-info-card">
+        <h2>Caller</h2>
+        <div class="snc-field-row">
+          <span class="snc-field-label">Name</span>
+          <span class="snc-field-value">${jv_caller_name}</span>
+        </div>
+        <div class="snc-field-row">
+          <span class="snc-field-label">Username</span>
+          <span class="snc-field-value">${jv_caller_username}</span>
+        </div>
+      </div>
 
-  <div id="submit-result">
-    <div class="snc-info-card" id="result-card">
-      <h2 id="result-title"></h2>
-      <div id="result-body"></div>
-    </div>
-  </div>
+      <button class="snc-submit-btn" id="submit-btn" type="button">Submit</button>
+
+      <div id="submit-result">
+        <div class="snc-info-card" id="result-card">
+          <h2 id="result-title"></h2>
+          <div id="result-body"></div>
+        </div>
+      </div>
+    </j:otherwise>
+  </j:choose>
 </div>
 
+<j:if test="${!empty(jv_caller_id)}">
 <script>
 (function () {
-  var USER_ID = '${jv_user_id}';
+  var CALLER_ID = '${jv_caller_id}';
 
   var select      = document.getElementById('phone-field-select');
   var btn         = document.getElementById('submit-btn');
@@ -211,7 +244,8 @@
     preview.textContent = '...';
     previewRow.style.display = 'flex';
     var ga = new GlideAjax('UserPhoneInfoAjax');
-    ga.addParam('sysparm_name', 'getFieldValue');
+    ga.addParam('sysparm_name',       'getFieldValue');
+    ga.addParam('sysparm_user_id',    CALLER_ID);
     ga.addParam('sysparm_field_name', fieldName);
     ga.getXMLAnswer(function (value) {
       preview.textContent = value || '(not set)';
@@ -233,7 +267,7 @@
     btn.textContent = 'Submitting...';
     var ga = new GlideAjax('UserPhoneInfoAjax');
     ga.addParam('sysparm_name',       'submitPhoneField');
-    ga.addParam('sysparm_user_id',    USER_ID);
+    ga.addParam('sysparm_user_id',    CALLER_ID);
     ga.addParam('sysparm_field_name', fieldName);
     ga.getXMLAnswer(function (response) {
       btn.disabled    = false;
@@ -270,6 +304,7 @@
   }
 }());
 </script>
+</j:if>
 
 </j:jelly>]]></html>
 
@@ -289,17 +324,18 @@
     <sys_scope display_value="Global">global</sys_scope>
     <name>UserPhoneInfoAjax</name>
     <api_name>global.UserPhoneInfoAjax</api_name>
-    <description>GlideAjax handler for user_phone_info UI page: getFieldValue, submitPhoneField, getPhoneField.</description>
+    <description>GlideAjax handler for user_phone_info. Accepts a caller sys_id (sysparm_user_id) rather than the session user. Methods: getFieldValue, submitPhoneField, getPhoneField.</description>
     <access>public</access>
     <active>true</active>
     <script><![CDATA[var UserPhoneInfoAjax = Class.create();
 UserPhoneInfoAjax.prototype = Object.extendsObject(AbstractAjaxProcessor, {
 
     getFieldValue: function () {
+        var userId    = this.getParameter('sysparm_user_id')    || '';
         var fieldName = this.getParameter('sysparm_field_name') || '';
-        if (!fieldName) { return ''; }
+        if (!userId || !fieldName) { return ''; }
         var gr = new GlideRecord('sys_user');
-        gr.get(gs.getUserID());
+        gr.get(userId);
         return (gr.isValidRecord() ? gr.getValue(fieldName) : '') || '';
     },
 
@@ -319,8 +355,8 @@ UserPhoneInfoAjax.prototype = Object.extendsObject(AbstractAjaxProcessor, {
         var fieldValue = gr.getValue(fieldName) || '';
 
         // ── Add your business logic here ──────────────────────────────
-        // userId     — the user's sys_id
-        // fieldValue — the value of the selected field for that user
+        // userId     — the caller's sys_id
+        // fieldValue — the value of the selected field for that caller
         // ─────────────────────────────────────────────────────────────
 
         return JSON.stringify({
@@ -339,5 +375,45 @@ UserPhoneInfoAjax.prototype = Object.extendsObject(AbstractAjaxProcessor, {
     type: 'UserPhoneInfoAjax'
 });]]></script>
   </sys_script_include>
+
+  <!-- ================================================================
+       3. UI Action  (sys_ui_action)
+       Table:  incident
+       Type:   Client script / Form button
+       Paste the script from ui_action.js into the Script field,
+       or import this update set which includes it here.
+       ================================================================ -->
+  <sys_ui_action action="INSERT_OR_UPDATE">
+    <sys_id>3d0e5c2f6b4a9f1e3c5d7b9e1f3a5c7e</sys_id>
+    <sys_created_by>admin</sys_created_by>
+    <sys_created_on>2026-04-29 00:00:00</sys_created_on>
+    <sys_updated_by>admin</sys_updated_by>
+    <sys_updated_on>2026-04-29 00:00:00</sys_updated_on>
+    <sys_scope display_value="Global">global</sys_scope>
+    <name>View Caller Phone</name>
+    <table>incident</table>
+    <action_name>viewCallerPhone</action_name>
+    <client>true</client>
+    <active>true</active>
+    <form_button>true</form_button>
+    <form_context_menu>false</form_context_menu>
+    <list_action>false</list_action>
+    <list_banner_button>false</list_banner_button>
+    <onclick/>
+    <condition/>
+    <script><![CDATA[var callerId = g_form.getValue('caller_id');
+
+if (!callerId) {
+    g_form.addErrorMessage('This incident does not have a caller. Please set the Caller field first.');
+    return;
+}
+
+g_modal.showFrame(
+    'Caller Phone Information',
+    'user_phone_info.do?sysparm_caller_id=' + callerId,
+    700,
+    480
+);]]></script>
+  </sys_ui_action>
 
 </unload>
