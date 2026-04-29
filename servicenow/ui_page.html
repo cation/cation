@@ -32,7 +32,7 @@
   .snc-field-row {
     display: flex;
     align-items: baseline;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     font-size: 0.9rem;
   }
   .snc-field-label {
@@ -54,54 +54,107 @@
     font-family: "Courier New", monospace;
     font-size: 0.85rem;
   }
+  #phone-field-select {
+    border: 1px solid #c0cdd6;
+    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: 0.9rem;
+    min-width: 260px;
+    color: #293e40;
+  }
+  #preview-row {
+    display: none;
+  }
+  .snc-submit-btn {
+    background: #1d7fca;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    padding: 8px 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .snc-submit-btn:hover { background: #1669a8; }
+  .snc-submit-btn:disabled { background: #9aabba; cursor: not-allowed; }
+  #submit-result { display: none; }
+  .snc-result-success { border-color: #3d8b3d; }
+  .snc-result-success h2 { color: #3d8b3d; }
+  .snc-result-error { border-color: #b0321b; }
+  .snc-result-error h2 { color: #b0321b; }
 </style>
+
+<!--
+  Step 1: Read the sys_property to get the currently configured field name.
+          Replace 'your.property.name' with your actual sys_property key.
+          The property VALUE should be a sys_user field name, e.g. u_mobile_phone.
+-->
+<g:evaluate var="jv_phone_field">
+  gs.getProperty('your.property.name', 'phone');
+</g:evaluate>
+
+<!--
+  Step 2: Query sys_dictionary for phone/mobile fields on sys_user.
+          Builds the <option> HTML for the dropdown, pre-selecting the
+          currently configured field. Appends the configured field at the
+          top if it falls outside the phone/mobile label filter.
+-->
+<g:evaluate var="jv_select_options">
+  var currentField = '${jv_phone_field}';
+  var gr = new GlideRecord('sys_dictionary');
+  gr.addQuery('name', 'sys_user');
+  gr.addQuery('internal_type', 'string');
+  var qc = gr.addQuery('column_label', 'CONTAINS', 'phone');
+  qc.addOrCondition('column_label', 'CONTAINS', 'mobile');
+  qc.addOrCondition('column_label', 'CONTAINS', 'telephone');
+  gr.orderBy('column_label');
+  gr.query();
+
+  var html = '';
+  var foundCurrent = false;
+  while (gr.next()) {
+    var fieldName = gr.getValue('element');
+    var label     = gr.getValue('column_label');
+    if (fieldName === currentField) { foundCurrent = true; }
+    var sel = (fieldName === currentField) ? ' selected="selected"' : '';
+    html += '<option value="' + fieldName + '"' + sel + '>'
+          + label + ' (' + fieldName + ')'
+          + '</option>';
+  }
+  // Always include the configured field even if it doesn't match the label filter
+  if (!foundCurrent && currentField) {
+    html = '<option value="' + currentField + '" selected="selected">'
+         + currentField
+         + '</option>' + html;
+  }
+  html;
+</g:evaluate>
+
+<!-- Step 3: Capture the logged-in user's sys_id for the client script -->
+<g:evaluate var="jv_user_id">
+  gs.getUserID();
+</g:evaluate>
 
 <div class="snc-info-page">
   <h1>User Phone Information</h1>
 
-  <!--
-    Step 1: Read the sys_property whose VALUE is a sys_user field name.
-            Replace 'your.property.name' with your actual sys_property key.
-            Example property record:
-              Name:  your.property.name
-              Value: u_mobile_phone        (or 'phone', 'mobile_phone', any field)
-  -->
-  <g:evaluate var="jv_phone_field">
-    gs.getProperty('your.property.name', 'phone');
-  </g:evaluate>
-
-  <!--
-    Step 2: Use that field name to query the logged-in user's sys_user record.
-            ${jv_phone_field} is substituted by Jelly before the script runs,
-            so gr.getValue() receives the resolved field name string.
-  -->
-  <g:evaluate var="jv_phone_value">
-    var gr = new GlideRecord('sys_user');
-    gr.get(gs.getUserID());
-    gr.isValidRecord() ? (gr.getValue('${jv_phone_field}') || '') : '';
-  </g:evaluate>
-
-  <!-- ── Card 1: show the property configuration ───────────────────── -->
+  <!-- ── Card 1: field selector ─────────────────────────────────── -->
   <div class="snc-info-card">
-    <h2>Phone Field Configuration</h2>
+    <h2>Select Phone Field</h2>
     <div class="snc-field-row">
-      <span class="snc-field-label">sys_property key</span>
-      <span class="snc-field-value mono">your.property.name</span>
+      <span class="snc-field-label">sys_user field</span>
+      <select id="phone-field-select">
+        <g2:no_escape value="${jv_select_options}"/>
+      </select>
     </div>
-    <div class="snc-field-row">
-      <span class="snc-field-label">Configured field</span>
-      <j:choose>
-        <j:when test="${empty(jv_phone_field)}">
-          <span class="snc-field-value empty">(property not set — using default: phone)</span>
-        </j:when>
-        <j:otherwise>
-          <span class="snc-field-value mono">${jv_phone_field}</span>
-        </j:otherwise>
-      </j:choose>
+    <div class="snc-field-row" id="preview-row">
+      <span class="snc-field-label">Current value</span>
+      <span id="field-value-preview" class="snc-field-value"></span>
     </div>
   </div>
 
-  <!-- ── Card 2: show the logged-in user's resolved phone value ───── -->
+  <!-- ── Card 2: logged-in user summary ─────────────────────────── -->
   <div class="snc-info-card">
     <h2>Logged-in User</h2>
     <div class="snc-field-row">
@@ -112,19 +165,103 @@
       <span class="snc-field-label">Username</span>
       <span class="snc-field-value">${gs.getUserName()}</span>
     </div>
-    <div class="snc-field-row">
-      <!-- Label is dynamic — shows which field is being read -->
-      <span class="snc-field-label">Phone (${jv_phone_field})</span>
-      <j:choose>
-        <j:when test="${empty(jv_phone_value)}">
-          <span class="snc-field-value empty">(not set)</span>
-        </j:when>
-        <j:otherwise>
-          <span class="snc-field-value">${jv_phone_value}</span>
-        </j:otherwise>
-      </j:choose>
+  </div>
+
+  <button class="snc-submit-btn" id="submit-btn" type="button">Submit</button>
+
+  <!-- ── Result area (shown after submit) ───────────────────────── -->
+  <div id="submit-result">
+    <div class="snc-info-card" id="result-card">
+      <h2 id="result-title"></h2>
+      <div id="result-body"></div>
     </div>
   </div>
 </div>
+
+<script>
+(function () {
+  // Jelly inlines the user's sys_id at render time (32-char hex — safe as a literal)
+  var USER_ID = '${jv_user_id}';
+
+  var select  = document.getElementById('phone-field-select');
+  var btn     = document.getElementById('submit-btn');
+  var preview = document.getElementById('field-value-preview');
+  var previewRow   = document.getElementById('preview-row');
+  var resultArea   = document.getElementById('submit-result');
+  var resultCard   = document.getElementById('result-card');
+  var resultTitle  = document.getElementById('result-title');
+  var resultBody   = document.getElementById('result-body');
+
+  // ── Preview: load field value whenever the dropdown changes ──────
+  function loadPreview(fieldName) {
+    preview.textContent = '…';
+    previewRow.style.display = 'flex';
+
+    var ga = new GlideAjax('UserPhoneInfoAjax');
+    ga.addParam('sysparm_name', 'getFieldValue');
+    ga.addParam('sysparm_field_name', fieldName);
+    ga.getXMLAnswer(function (value) {
+      preview.textContent = value || '(not set)';
+      preview.className   = value ? 'snc-field-value' : 'snc-field-value empty';
+    });
+  }
+
+  select.addEventListener('change', function () {
+    loadPreview(this.value);
+    resultArea.style.display = 'none';
+  });
+
+  // Trigger preview on page load for the pre-selected field
+  if (select.value) { loadPreview(select.value); }
+
+  // ── Submit ────────────────────────────────────────────────────────
+  btn.addEventListener('click', function () {
+    var fieldName = select.value;
+    if (!fieldName) { return; }
+
+    btn.disabled    = true;
+    btn.textContent = 'Submitting…';
+
+    var ga = new GlideAjax('UserPhoneInfoAjax');
+    ga.addParam('sysparm_name',       'submitPhoneField');
+    ga.addParam('sysparm_user_id',    USER_ID);
+    ga.addParam('sysparm_field_name', fieldName);
+    ga.getXMLAnswer(function (response) {
+      btn.disabled    = false;
+      btn.textContent = 'Submit';
+
+      try {
+        var data = JSON.parse(response);
+        resultArea.style.display = 'block';
+
+        if (data.success) {
+          resultCard.className  = 'snc-info-card snc-result-success';
+          resultTitle.textContent = 'Submitted successfully';
+          resultBody.innerHTML =
+            row('User ID',    data.userId)    +
+            row('Field',      data.fieldName) +
+            row('Field value', data.fieldValue || '(not set)');
+        } else {
+          resultCard.className  = 'snc-info-card snc-result-error';
+          resultTitle.textContent = 'Error';
+          resultBody.innerHTML = row('Message', data.error || 'Unknown error');
+        }
+      } catch (e) {
+        resultArea.style.display = 'block';
+        resultCard.className  = 'snc-info-card snc-result-error';
+        resultTitle.textContent = 'Error';
+        resultBody.innerHTML = row('Message', 'Unexpected server response');
+      }
+    });
+  });
+
+  function row(label, value) {
+    return '<div class="snc-field-row">'
+      + '<span class="snc-field-label">' + label + '</span>'
+      + '<span class="snc-field-value">' + value  + '</span>'
+      + '</div>';
+  }
+}());
+</script>
 
 </j:jelly>

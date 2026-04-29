@@ -5,22 +5,25 @@
 
   Before importing:
   1. Replace every 'your.property.name' with your actual sys_property key.
-  2. Ensure the sys_property record exists with its VALUE set to the
-     sys_user field name you want to read, e.g.:
+  2. Ensure the sys_property record exists with its VALUE set to a
+     sys_user field name, e.g.:
        Name:  your.property.name
-       Value: u_mobile_phone      (or 'phone', 'mobile_phone', any field)
+       Value: u_mobile_phone      (or 'phone', 'mobile_phone', any string field)
 -->
 <unload unload_date="2026-04-29 00:00:00">
 
   <!-- ================================================================
-       1. UI Page record  (sys_ui_page)
-       Navigate to: System UI > UI Pages  after import to test it.
-       Direct URL:  /user_phone_info.do
+       1. UI Page  (sys_ui_page)
+       URL after import:  /user_phone_info.do
 
        How it works:
-         - Reads sys_property 'your.property.name' to get a field name.
-         - Queries the logged-in user's sys_user record for that field.
-         - Displays both the configured field name and its value.
+         - Queries sys_dictionary for phone/mobile fields on sys_user
+           and renders them as a dropdown (pre-selecting the current
+           sys_property value).
+         - Changing the dropdown previews the field value for the
+           logged-in user via GlideAjax getFieldValue.
+         - Submit calls GlideAjax submitPhoneField(userId, fieldName),
+           which resolves the field value server-side and returns JSON.
        ================================================================ -->
   <sys_ui_page action="INSERT_OR_UPDATE">
     <sys_id>1f8d3a0e4b2c7e9d0f1a3b5c7e9d1f8a</sys_id>
@@ -30,11 +33,10 @@
     <sys_updated_on>2026-04-29 00:00:00</sys_updated_on>
     <sys_scope display_value="Global">global</sys_scope>
     <name>user_phone_info</name>
-    <description>Reads a sys_property whose value is a sys_user field name, then displays that field&apos;s value for the logged-in user.</description>
+    <description>Dropdown of sys_user phone/mobile fields; previews the logged-in user&apos;s value on change; submits user ID and field value to the server.</description>
     <direct>false</direct>
     <category>general</category>
 
-    <!-- ── HTML (Jelly) ─────────────────────────────────────────── -->
     <html><![CDATA[<?xml version="1.0" encoding="utf-8" ?>
 <j:jelly trim="false" xmlns:j="jelly:core" xmlns:g="glide" xmlns:j2="null" xmlns:g2="null">
 
@@ -69,7 +71,7 @@
   .snc-field-row {
     display: flex;
     align-items: baseline;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     font-size: 0.9rem;
   }
   .snc-field-label {
@@ -87,41 +89,86 @@
     font-style: italic;
     font-weight: normal;
   }
-  .snc-field-value.mono {
-    font-family: "Courier New", monospace;
-    font-size: 0.85rem;
+  #phone-field-select {
+    border: 1px solid #c0cdd6;
+    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: 0.9rem;
+    min-width: 260px;
+    color: #293e40;
   }
+  #preview-row { display: none; }
+  .snc-submit-btn {
+    background: #1d7fca;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    padding: 8px 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .snc-submit-btn:hover { background: #1669a8; }
+  .snc-submit-btn:disabled { background: #9aabba; cursor: not-allowed; }
+  #submit-result { display: none; }
+  .snc-result-success { border-color: #3d8b3d; }
+  .snc-result-success h2 { color: #3d8b3d; }
+  .snc-result-error { border-color: #b0321b; }
+  .snc-result-error h2 { color: #b0321b; }
 </style>
+
+<g:evaluate var="jv_phone_field">
+  gs.getProperty('your.property.name', 'phone');
+</g:evaluate>
+
+<g:evaluate var="jv_select_options">
+  var currentField = '${jv_phone_field}';
+  var gr = new GlideRecord('sys_dictionary');
+  gr.addQuery('name', 'sys_user');
+  gr.addQuery('internal_type', 'string');
+  var qc = gr.addQuery('column_label', 'CONTAINS', 'phone');
+  qc.addOrCondition('column_label', 'CONTAINS', 'mobile');
+  qc.addOrCondition('column_label', 'CONTAINS', 'telephone');
+  gr.orderBy('column_label');
+  gr.query();
+
+  var html = '';
+  var foundCurrent = false;
+  while (gr.next()) {
+    var fieldName = gr.getValue('element');
+    var label     = gr.getValue('column_label');
+    if (fieldName === currentField) { foundCurrent = true; }
+    var sel = (fieldName === currentField) ? ' selected="selected"' : '';
+    html += '<option value="' + fieldName + '"' + sel + '>'
+          + label + ' (' + fieldName + ')'
+          + '</option>';
+  }
+  if (!foundCurrent && currentField) {
+    html = '<option value="' + currentField + '" selected="selected">'
+         + currentField + '</option>' + html;
+  }
+  html;
+</g:evaluate>
+
+<g:evaluate var="jv_user_id">
+  gs.getUserID();
+</g:evaluate>
 
 <div class="snc-info-page">
   <h1>User Phone Information</h1>
 
-  <g:evaluate var="jv_phone_field">
-    gs.getProperty('your.property.name', 'phone');
-  </g:evaluate>
-
-  <g:evaluate var="jv_phone_value">
-    var gr = new GlideRecord('sys_user');
-    gr.get(gs.getUserID());
-    gr.isValidRecord() ? (gr.getValue('${jv_phone_field}') || '') : '';
-  </g:evaluate>
-
   <div class="snc-info-card">
-    <h2>Phone Field Configuration</h2>
+    <h2>Select Phone Field</h2>
     <div class="snc-field-row">
-      <span class="snc-field-label">sys_property key</span>
-      <span class="snc-field-value mono">your.property.name</span>
+      <span class="snc-field-label">sys_user field</span>
+      <select id="phone-field-select">
+        <g2:no_escape value="${jv_select_options}"/>
+      </select>
     </div>
-    <div class="snc-field-row">
-      <span class="snc-field-label">Configured field</span>
-      <j:choose>
-        <j:when test="${empty(jv_phone_field)}">
-          <span class="snc-field-value empty">(property not set — using default: phone)</span>
-        </j:when>
-        <j:otherwise>
-          <span class="snc-field-value mono">${jv_phone_field}</span>
-        </j:otherwise>
-      </j:choose>
+    <div class="snc-field-row" id="preview-row">
+      <span class="snc-field-label">Current value</span>
+      <span id="field-value-preview" class="snc-field-value"></span>
     </div>
   </div>
 
@@ -135,19 +182,94 @@
       <span class="snc-field-label">Username</span>
       <span class="snc-field-value">${gs.getUserName()}</span>
     </div>
-    <div class="snc-field-row">
-      <span class="snc-field-label">Phone (${jv_phone_field})</span>
-      <j:choose>
-        <j:when test="${empty(jv_phone_value)}">
-          <span class="snc-field-value empty">(not set)</span>
-        </j:when>
-        <j:otherwise>
-          <span class="snc-field-value">${jv_phone_value}</span>
-        </j:otherwise>
-      </j:choose>
+  </div>
+
+  <button class="snc-submit-btn" id="submit-btn" type="button">Submit</button>
+
+  <div id="submit-result">
+    <div class="snc-info-card" id="result-card">
+      <h2 id="result-title"></h2>
+      <div id="result-body"></div>
     </div>
   </div>
 </div>
+
+<script>
+(function () {
+  var USER_ID = '${jv_user_id}';
+
+  var select      = document.getElementById('phone-field-select');
+  var btn         = document.getElementById('submit-btn');
+  var preview     = document.getElementById('field-value-preview');
+  var previewRow  = document.getElementById('preview-row');
+  var resultArea  = document.getElementById('submit-result');
+  var resultCard  = document.getElementById('result-card');
+  var resultTitle = document.getElementById('result-title');
+  var resultBody  = document.getElementById('result-body');
+
+  function loadPreview(fieldName) {
+    preview.textContent = '...';
+    previewRow.style.display = 'flex';
+    var ga = new GlideAjax('UserPhoneInfoAjax');
+    ga.addParam('sysparm_name', 'getFieldValue');
+    ga.addParam('sysparm_field_name', fieldName);
+    ga.getXMLAnswer(function (value) {
+      preview.textContent = value || '(not set)';
+      preview.className   = value ? 'snc-field-value' : 'snc-field-value empty';
+    });
+  }
+
+  select.addEventListener('change', function () {
+    loadPreview(this.value);
+    resultArea.style.display = 'none';
+  });
+
+  if (select.value) { loadPreview(select.value); }
+
+  btn.addEventListener('click', function () {
+    var fieldName = select.value;
+    if (!fieldName) { return; }
+    btn.disabled    = true;
+    btn.textContent = 'Submitting...';
+    var ga = new GlideAjax('UserPhoneInfoAjax');
+    ga.addParam('sysparm_name',       'submitPhoneField');
+    ga.addParam('sysparm_user_id',    USER_ID);
+    ga.addParam('sysparm_field_name', fieldName);
+    ga.getXMLAnswer(function (response) {
+      btn.disabled    = false;
+      btn.textContent = 'Submit';
+      try {
+        var data = JSON.parse(response);
+        resultArea.style.display = 'block';
+        if (data.success) {
+          resultCard.className    = 'snc-info-card snc-result-success';
+          resultTitle.textContent = 'Submitted successfully';
+          resultBody.innerHTML    =
+            row('User ID',     data.userId)    +
+            row('Field',       data.fieldName) +
+            row('Field value', data.fieldValue || '(not set)');
+        } else {
+          resultCard.className    = 'snc-info-card snc-result-error';
+          resultTitle.textContent = 'Error';
+          resultBody.innerHTML    = row('Message', data.error || 'Unknown error');
+        }
+      } catch (e) {
+        resultArea.style.display  = 'block';
+        resultCard.className      = 'snc-info-card snc-result-error';
+        resultTitle.textContent   = 'Error';
+        resultBody.innerHTML      = row('Message', 'Unexpected server response');
+      }
+    });
+  });
+
+  function row(label, value) {
+    return '<div class="snc-field-row">'
+      + '<span class="snc-field-label">' + label + '</span>'
+      + '<span class="snc-field-value">' + value  + '</span>'
+      + '</div>';
+  }
+}());
+</script>
 
 </j:jelly>]]></html>
 
@@ -157,8 +279,6 @@
 
   <!-- ================================================================
        2. Script Include  (sys_script_include)
-       GlideAjax alternative to the Jelly approach above.
-       See script_include.js for the matching client code.
        ================================================================ -->
   <sys_script_include action="INSERT_OR_UPDATE">
     <sys_id>2e9c4b1d5a3f8e0c2d4b6a8e0c2d4b6a</sys_id>
@@ -169,22 +289,46 @@
     <sys_scope display_value="Global">global</sys_scope>
     <name>UserPhoneInfoAjax</name>
     <api_name>global.UserPhoneInfoAjax</api_name>
-    <description>GlideAjax helper that reads a sys_property to discover the configured sys_user phone field name, then returns that field&apos;s value for the logged-in user.</description>
+    <description>GlideAjax handler for user_phone_info UI page: getFieldValue, submitPhoneField, getPhoneField.</description>
     <access>public</access>
     <active>true</active>
     <script><![CDATA[var UserPhoneInfoAjax = Class.create();
 UserPhoneInfoAjax.prototype = Object.extendsObject(AbstractAjaxProcessor, {
 
-    getUserPhone: function () {
-        var propName = this.getParameter('sysparm_prop_name') || 'your.property.name';
-        var fieldName = gs.getProperty(propName, 'phone') || 'phone';
-
+    getFieldValue: function () {
+        var fieldName = this.getParameter('sysparm_field_name') || '';
+        if (!fieldName) { return ''; }
         var gr = new GlideRecord('sys_user');
         gr.get(gs.getUserID());
-        if (!gr.isValidRecord()) {
-            return '';
+        return (gr.isValidRecord() ? gr.getValue(fieldName) : '') || '';
+    },
+
+    submitPhoneField: function () {
+        var userId    = this.getParameter('sysparm_user_id')    || '';
+        var fieldName = this.getParameter('sysparm_field_name') || '';
+
+        if (!userId || !fieldName) {
+            return JSON.stringify({ success: false, error: 'Missing required parameters.' });
         }
-        return gr.getValue(fieldName) || '';
+
+        var gr = new GlideRecord('sys_user');
+        if (!gr.get(userId)) {
+            return JSON.stringify({ success: false, error: 'User record not found.' });
+        }
+
+        var fieldValue = gr.getValue(fieldName) || '';
+
+        // ── Add your business logic here ──────────────────────────────
+        // userId     — the user's sys_id
+        // fieldValue — the value of the selected field for that user
+        // ─────────────────────────────────────────────────────────────
+
+        return JSON.stringify({
+            success:    true,
+            userId:     userId,
+            fieldName:  fieldName,
+            fieldValue: fieldValue
+        });
     },
 
     getPhoneField: function () {

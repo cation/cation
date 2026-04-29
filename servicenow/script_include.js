@@ -3,40 +3,72 @@
  * Scope: global
  * Access: public
  *
- * GlideAjax helper — alternative to the Jelly server-side approach in
- * ui_page.html. Reads the sys_property to discover the configured sys_user
- * field name, then returns that field's value for the logged-in user.
+ * GlideAjax methods called by the user_phone_info UI page.
+ * Replace 'your.property.name' with the actual sys_property key.
  */
 var UserPhoneInfoAjax = Class.create();
 UserPhoneInfoAjax.prototype = Object.extendsObject(AbstractAjaxProcessor, {
 
     /**
-     * Returns the logged-in user's phone value, resolved dynamically via a
-     * sys_property whose VALUE is the sys_user field name to read from.
+     * Returns the value of an arbitrary sys_user field for the logged-in user.
+     * Used to populate the live preview when the dropdown selection changes.
      *
-     * Client call:
-     *   sysparm_name=getUserPhone
-     *   sysparm_prop_name=your.property.name   (the sys_property key)
+     * Params: sysparm_field_name — the sys_user column name to read
      */
-    getUserPhone: function () {
-        var propName = this.getParameter('sysparm_prop_name') || 'your.property.name';
-        var fieldName = gs.getProperty(propName, 'phone') || 'phone';
+    getFieldValue: function () {
+        var fieldName = this.getParameter('sysparm_field_name') || '';
+        if (!fieldName) { return ''; }
 
         var gr = new GlideRecord('sys_user');
         gr.get(gs.getUserID());
-        if (!gr.isValidRecord()) {
-            return '';
-        }
-        return gr.getValue(fieldName) || '';
+        return (gr.isValidRecord() ? gr.getValue(fieldName) : '') || '';
     },
 
     /**
-     * Returns the raw sys_property value (i.e. the configured field name).
-     * Useful if the client needs to display which field is configured.
+     * Submit function — accepts the user ID and resolves the field value
+     * from the user record, then returns both for downstream processing.
      *
-     * Client call:
-     *   sysparm_name=getPhoneField
-     *   sysparm_prop_name=your.property.name
+     * Params:
+     *   sysparm_user_id    — sys_user sys_id of the logged-in user
+     *   sysparm_field_name — the selected sys_user field name
+     *
+     * Returns JSON: { success, userId, fieldName, fieldValue } | { success, error }
+     */
+    submitPhoneField: function () {
+        var userId    = this.getParameter('sysparm_user_id')    || '';
+        var fieldName = this.getParameter('sysparm_field_name') || '';
+
+        if (!userId || !fieldName) {
+            return JSON.stringify({ success: false, error: 'Missing required parameters.' });
+        }
+
+        var gr = new GlideRecord('sys_user');
+        if (!gr.get(userId)) {
+            return JSON.stringify({ success: false, error: 'User record not found.' });
+        }
+
+        var fieldValue = gr.getValue(fieldName) || '';
+
+        // ── Add your business logic here ──────────────────────────────
+        // At this point you have:
+        //   userId     — the user's sys_id
+        //   fieldValue — the value of the selected field for that user
+        // Example: gs.setProperty('your.property.name', fieldName);
+        // ─────────────────────────────────────────────────────────────
+
+        return JSON.stringify({
+            success:    true,
+            userId:     userId,
+            fieldName:  fieldName,
+            fieldValue: fieldValue
+        });
+    },
+
+    /**
+     * Returns the currently configured sys_user field name from sys_property.
+     * Useful if the client needs to know the active configuration.
+     *
+     * Params: sysparm_prop_name — the sys_property key to read
      */
     getPhoneField: function () {
         var propName = this.getParameter('sysparm_prop_name') || 'your.property.name';
@@ -45,29 +77,3 @@ UserPhoneInfoAjax.prototype = Object.extendsObject(AbstractAjaxProcessor, {
 
     type: 'UserPhoneInfoAjax'
 });
-
-/* ---------- Example client script (paste into the UI Page client script field) ----------
-
-function onLoad() {
-    var PROP_NAME = 'your.property.name'; // replace with your actual sys_property key
-
-    // Show which field is configured
-    var gaField = new GlideAjax('UserPhoneInfoAjax');
-    gaField.addParam('sysparm_name', 'getPhoneField');
-    gaField.addParam('sysparm_prop_name', PROP_NAME);
-    gaField.getXMLAnswer(function (fieldName) {
-        var el = document.getElementById('configured-field');
-        if (el) el.innerText = fieldName || '(not set)';
-    });
-
-    // Show the user's phone value from that field
-    var gaPhone = new GlideAjax('UserPhoneInfoAjax');
-    gaPhone.addParam('sysparm_name', 'getUserPhone');
-    gaPhone.addParam('sysparm_prop_name', PROP_NAME);
-    gaPhone.getXMLAnswer(function (phoneValue) {
-        var el = document.getElementById('user-phone');
-        if (el) el.innerText = phoneValue || '(not set)';
-    });
-}
-
-*/
