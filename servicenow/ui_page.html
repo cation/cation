@@ -37,7 +37,7 @@
   }
   .snc-field-label {
     color: #637887;
-    min-width: 140px;
+    min-width: 160px;
     flex-shrink: 0;
   }
   .snc-field-value {
@@ -50,40 +50,58 @@
     font-style: italic;
     font-weight: normal;
   }
+  .snc-field-value.mono {
+    font-family: "Courier New", monospace;
+    font-size: 0.85rem;
+  }
 </style>
 
 <div class="snc-info-page">
-  <h1>System &amp; User Information</h1>
+  <h1>User Phone Information</h1>
 
-  <!-- ============================================================
-       SECTION 1: sys_property value
-       Change the property name below to match your sys_property key.
-       ============================================================ -->
+  <!--
+    Step 1: Read the sys_property whose VALUE is a sys_user field name.
+            Replace 'your.property.name' with your actual sys_property key.
+            Example property record:
+              Name:  your.property.name
+              Value: u_mobile_phone        (or 'phone', 'mobile_phone', any field)
+  -->
+  <g:evaluate var="jv_phone_field">
+    gs.getProperty('your.property.name', 'phone');
+  </g:evaluate>
+
+  <!--
+    Step 2: Use that field name to query the logged-in user's sys_user record.
+            ${jv_phone_field} is substituted by Jelly before the script runs,
+            so gr.getValue() receives the resolved field name string.
+  -->
+  <g:evaluate var="jv_phone_value">
+    var gr = new GlideRecord('sys_user');
+    gr.get(gs.getUserID());
+    gr.isValidRecord() ? (gr.getValue('${jv_phone_field}') || '') : '';
+  </g:evaluate>
+
+  <!-- ── Card 1: show the property configuration ───────────────────── -->
   <div class="snc-info-card">
-    <h2>System Property</h2>
+    <h2>Phone Field Configuration</h2>
     <div class="snc-field-row">
-      <span class="snc-field-label">Property name</span>
-      <!-- Replace 'your.property.name' with the actual sys_property key -->
-      <span class="snc-field-value">your.property.name</span>
+      <span class="snc-field-label">sys_property key</span>
+      <span class="snc-field-value mono">your.property.name</span>
     </div>
     <div class="snc-field-row">
-      <span class="snc-field-label">Value</span>
-      <j:set var="jv_prop_value" value="${gs.getProperty('your.property.name', '')}"/>
+      <span class="snc-field-label">Configured field</span>
       <j:choose>
-        <j:when test="${empty(jv_prop_value)}">
-          <span class="snc-field-value empty">(not set)</span>
+        <j:when test="${empty(jv_phone_field)}">
+          <span class="snc-field-value empty">(property not set — using default: phone)</span>
         </j:when>
         <j:otherwise>
-          <span class="snc-field-value">${jv_prop_value}</span>
+          <span class="snc-field-value mono">${jv_phone_field}</span>
         </j:otherwise>
       </j:choose>
     </div>
   </div>
 
-  <!-- ============================================================
-       SECTION 2: Logged-in user phone number
-       Reads the 'phone' field from the sys_user record.
-       ============================================================ -->
+  <!-- ── Card 2: show the logged-in user's resolved phone value ───── -->
   <div class="snc-info-card">
     <h2>Logged-in User</h2>
     <div class="snc-field-row">
@@ -95,14 +113,14 @@
       <span class="snc-field-value">${gs.getUserName()}</span>
     </div>
     <div class="snc-field-row">
-      <span class="snc-field-label">Phone</span>
-      <j:set var="jv_phone" value="${gs.getUser().getPhone()}"/>
+      <!-- Label is dynamic — shows which field is being read -->
+      <span class="snc-field-label">Phone (${jv_phone_field})</span>
       <j:choose>
-        <j:when test="${empty(jv_phone)}">
+        <j:when test="${empty(jv_phone_value)}">
           <span class="snc-field-value empty">(not set)</span>
         </j:when>
         <j:otherwise>
-          <span class="snc-field-value">${jv_phone}</span>
+          <span class="snc-field-value">${jv_phone_value}</span>
         </j:otherwise>
       </j:choose>
     </div>

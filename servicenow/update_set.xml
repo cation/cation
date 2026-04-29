@@ -3,8 +3,12 @@
   ServiceNow Update Set — User Phone Info UI Page
   Import via: System Update Sets > Retrieved Update Sets > Import Update Set from XML
 
-  Before importing, replace every occurrence of 'your.property.name'
-  with the actual sys_property key you want to display.
+  Before importing:
+  1. Replace every 'your.property.name' with your actual sys_property key.
+  2. Ensure the sys_property record exists with its VALUE set to the
+     sys_user field name you want to read, e.g.:
+       Name:  your.property.name
+       Value: u_mobile_phone      (or 'phone', 'mobile_phone', any field)
 -->
 <unload unload_date="2026-04-29 00:00:00">
 
@@ -12,6 +16,11 @@
        1. UI Page record  (sys_ui_page)
        Navigate to: System UI > UI Pages  after import to test it.
        Direct URL:  /user_phone_info.do
+
+       How it works:
+         - Reads sys_property 'your.property.name' to get a field name.
+         - Queries the logged-in user's sys_user record for that field.
+         - Displays both the configured field name and its value.
        ================================================================ -->
   <sys_ui_page action="INSERT_OR_UPDATE">
     <sys_id>1f8d3a0e4b2c7e9d0f1a3b5c7e9d1f8a</sys_id>
@@ -21,7 +30,7 @@
     <sys_updated_on>2026-04-29 00:00:00</sys_updated_on>
     <sys_scope display_value="Global">global</sys_scope>
     <name>user_phone_info</name>
-    <description>Displays a sys_property value and the logged-in user&apos;s phone number.</description>
+    <description>Reads a sys_property whose value is a sys_user field name, then displays that field&apos;s value for the logged-in user.</description>
     <direct>false</direct>
     <category>general</category>
 
@@ -65,7 +74,7 @@
   }
   .snc-field-label {
     color: #637887;
-    min-width: 140px;
+    min-width: 160px;
     flex-shrink: 0;
   }
   .snc-field-value {
@@ -78,26 +87,39 @@
     font-style: italic;
     font-weight: normal;
   }
+  .snc-field-value.mono {
+    font-family: "Courier New", monospace;
+    font-size: 0.85rem;
+  }
 </style>
 
 <div class="snc-info-page">
-  <h1>System &amp;amp; User Information</h1>
+  <h1>User Phone Information</h1>
+
+  <g:evaluate var="jv_phone_field">
+    gs.getProperty('your.property.name', 'phone');
+  </g:evaluate>
+
+  <g:evaluate var="jv_phone_value">
+    var gr = new GlideRecord('sys_user');
+    gr.get(gs.getUserID());
+    gr.isValidRecord() ? (gr.getValue('${jv_phone_field}') || '') : '';
+  </g:evaluate>
 
   <div class="snc-info-card">
-    <h2>System Property</h2>
+    <h2>Phone Field Configuration</h2>
     <div class="snc-field-row">
-      <span class="snc-field-label">Property name</span>
-      <span class="snc-field-value">your.property.name</span>
+      <span class="snc-field-label">sys_property key</span>
+      <span class="snc-field-value mono">your.property.name</span>
     </div>
     <div class="snc-field-row">
-      <span class="snc-field-label">Value</span>
-      <j:set var="jv_prop_value" value="${gs.getProperty('your.property.name', '')}"/>
+      <span class="snc-field-label">Configured field</span>
       <j:choose>
-        <j:when test="${empty(jv_prop_value)}">
-          <span class="snc-field-value empty">(not set)</span>
+        <j:when test="${empty(jv_phone_field)}">
+          <span class="snc-field-value empty">(property not set — using default: phone)</span>
         </j:when>
         <j:otherwise>
-          <span class="snc-field-value">${jv_prop_value}</span>
+          <span class="snc-field-value mono">${jv_phone_field}</span>
         </j:otherwise>
       </j:choose>
     </div>
@@ -114,14 +136,13 @@
       <span class="snc-field-value">${gs.getUserName()}</span>
     </div>
     <div class="snc-field-row">
-      <span class="snc-field-label">Phone</span>
-      <j:set var="jv_phone" value="${gs.getUser().getPhone()}"/>
+      <span class="snc-field-label">Phone (${jv_phone_field})</span>
       <j:choose>
-        <j:when test="${empty(jv_phone)}">
+        <j:when test="${empty(jv_phone_value)}">
           <span class="snc-field-value empty">(not set)</span>
         </j:when>
         <j:otherwise>
-          <span class="snc-field-value">${jv_phone}</span>
+          <span class="snc-field-value">${jv_phone_value}</span>
         </j:otherwise>
       </j:choose>
     </div>
@@ -130,17 +151,14 @@
 
 </j:jelly>]]></html>
 
-    <!-- ── Client Script (optional — only needed for GlideAjax variant) ── -->
     <client_script><![CDATA[]]></client_script>
-
-    <!-- ── Processing Script (server-side JS alternative to Jelly) ─────── -->
     <processing_script><![CDATA[]]></processing_script>
   </sys_ui_page>
 
   <!-- ================================================================
        2. Script Include  (sys_script_include)
-       Used only if you prefer the GlideAjax approach over Jelly.
-       See script_include.js in this repo for the matching client code.
+       GlideAjax alternative to the Jelly approach above.
+       See script_include.js for the matching client code.
        ================================================================ -->
   <sys_script_include action="INSERT_OR_UPDATE">
     <sys_id>2e9c4b1d5a3f8e0c2d4b6a8e0c2d4b6a</sys_id>
@@ -151,22 +169,27 @@
     <sys_scope display_value="Global">global</sys_scope>
     <name>UserPhoneInfoAjax</name>
     <api_name>global.UserPhoneInfoAjax</api_name>
-    <description>GlideAjax helper for user_phone_info UI page. Returns the logged-in user&apos;s phone and a sys_property value.</description>
+    <description>GlideAjax helper that reads a sys_property to discover the configured sys_user phone field name, then returns that field&apos;s value for the logged-in user.</description>
     <access>public</access>
     <active>true</active>
     <script><![CDATA[var UserPhoneInfoAjax = Class.create();
 UserPhoneInfoAjax.prototype = Object.extendsObject(AbstractAjaxProcessor, {
 
     getUserPhone: function () {
-        return gs.getUser().getPhone() || '';
-    },
+        var propName = this.getParameter('sysparm_prop_name') || 'your.property.name';
+        var fieldName = gs.getProperty(propName, 'phone') || 'phone';
 
-    getSysProperty: function () {
-        var propName = this.getParameter('sysparm_prop_name') || '';
-        if (!propName) {
+        var gr = new GlideRecord('sys_user');
+        gr.get(gs.getUserID());
+        if (!gr.isValidRecord()) {
             return '';
         }
-        return gs.getProperty(propName, '') || '';
+        return gr.getValue(fieldName) || '';
+    },
+
+    getPhoneField: function () {
+        var propName = this.getParameter('sysparm_prop_name') || 'your.property.name';
+        return gs.getProperty(propName, 'phone') || 'phone';
     },
 
     type: 'UserPhoneInfoAjax'
