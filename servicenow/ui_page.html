@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<j:jelly trim="false" xmlns:j="jelly:core" xmlns:g="glide" xmlns:j2="null" xmlns:g2="null">
+
+<style>
+  .snc-info-page {
+    font-family: "Source Sans Pro", Arial, sans-serif;
+    max-width: 640px;
+    margin: 32px auto;
+    padding: 0 16px;
+  }
+  .snc-info-page h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 24px;
+    color: #293e40;
+  }
+  .snc-info-card {
+    border: 1px solid #d9e2e8;
+    border-radius: 4px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    background: #ffffff;
+  }
+  .snc-info-card h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 14px;
+    color: #293e40;
+    border-bottom: 1px solid #e8ecee;
+    padding-bottom: 10px;
+  }
+  .snc-field-row {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+  }
+  .snc-field-label {
+    color: #637887;
+    min-width: 140px;
+    flex-shrink: 0;
+  }
+  .snc-field-value {
+    color: #293e40;
+    font-weight: 500;
+    word-break: break-word;
+  }
+  .snc-field-value.empty {
+    color: #9aabba;
+    font-style: italic;
+    font-weight: normal;
+  }
+</style>
+
+<div class="snc-info-page">
+  <h1>System &amp; User Information</h1>
+
+  <!-- ============================================================
+       SECTION 1: sys_property value
+       Change the property name below to match your sys_property key.
+       ============================================================ -->
+  <div class="snc-info-card">
+    <h2>System Property</h2>
+    <div class="snc-field-row">
+      <span class="snc-field-label">Property name</span>
+      <!-- Replace 'your.property.name' with the actual sys_property key -->
+      <span class="snc-field-value">your.property.name</span>
+    </div>
+    <div class="snc-field-row">
+      <span class="snc-field-label">Value</span>
+      <j:set var="jv_prop_value" value="${gs.getProperty('your.property.name', '')}"/>
+      <j:choose>
+        <j:when test="${empty(jv_prop_value)}">
+          <span class="snc-field-value empty">(not set)</span>
+        </j:when>
+        <j:otherwise>
+          <span class="snc-field-value">${jv_prop_value}</span>
+        </j:otherwise>
+      </j:choose>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SECTION 2: Logged-in user phone number
+       Reads the 'phone' field from the sys_user record.
+       ============================================================ -->
+  <div class="snc-info-card">
+    <h2>Logged-in User</h2>
+    <div class="snc-field-row">
+      <span class="snc-field-label">Name</span>
+      <span class="snc-field-value">${gs.getUserDisplayName()}</span>
+    </div>
+    <div class="snc-field-row">
+      <span class="snc-field-label">Username</span>
+      <span class="snc-field-value">${gs.getUserName()}</span>
+    </div>
+    <div class="snc-field-row">
+      <span class="snc-field-label">Phone</span>
+      <j:set var="jv_phone" value="${gs.getUser().getPhone()}"/>
+      <j:choose>
+        <j:when test="${empty(jv_phone)}">
+          <span class="snc-field-value empty">(not set)</span>
+        </j:when>
+        <j:otherwise>
+          <span class="snc-field-value">${jv_phone}</span>
+        </j:otherwise>
+      </j:choose>
+    </div>
+  </div>
+</div>
+
+</j:jelly>
