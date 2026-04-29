@@ -71,13 +71,19 @@ UserPhoneInfoAjax.prototype = Object.extendsObject(AbstractAjaxProcessor, {
     },
 
     /**
-     * Returns the currently configured sys_user field name from sys_property.
+     * Returns the value of any sys_property. Used by the UI Action to
+     * look up the incident caller field name from a property at runtime,
+     * avoiding hardcoded field names in client-side code.
      *
-     * Params: sysparm_prop_name — the sys_property key to read
+     * Params:
+     *   sysparm_prop_name   — the sys_property key to read
+     *   sysparm_default_val — value to return when the property is not set
      */
-    getPhoneField: function () {
-        var propName = this.getParameter('sysparm_prop_name') || 'your.property.name';
-        return gs.getProperty(propName, 'phone') || 'phone';
+    getSysProperty: function () {
+        var propName   = this.getParameter('sysparm_prop_name')   || '';
+        var defaultVal = this.getParameter('sysparm_default_val') || '';
+        if (!propName) { return defaultVal; }
+        return gs.getProperty(propName, defaultVal) || defaultVal;
     },
 
     type: 'UserPhoneInfoAjax'

@@ -324,7 +324,7 @@
     <sys_scope display_value="Global">global</sys_scope>
     <name>UserPhoneInfoAjax</name>
     <api_name>global.UserPhoneInfoAjax</api_name>
-    <description>GlideAjax handler for user_phone_info. Accepts a caller sys_id (sysparm_user_id) rather than the session user. Methods: getFieldValue, submitPhoneField, getPhoneField.</description>
+    <description>GlideAjax handler for user_phone_info. Accepts a caller sys_id (sysparm_user_id) rather than the session user. Methods: getFieldValue, submitPhoneField, getSysProperty.</description>
     <access>public</access>
     <active>true</active>
     <script><![CDATA[var UserPhoneInfoAjax = Class.create();
@@ -367,9 +367,11 @@ UserPhoneInfoAjax.prototype = Object.extendsObject(AbstractAjaxProcessor, {
         });
     },
 
-    getPhoneField: function () {
-        var propName = this.getParameter('sysparm_prop_name') || 'your.property.name';
-        return gs.getProperty(propName, 'phone') || 'phone';
+    getSysProperty: function () {
+        var propName   = this.getParameter('sysparm_prop_name')   || '';
+        var defaultVal = this.getParameter('sysparm_default_val') || '';
+        if (!propName) { return defaultVal; }
+        return gs.getProperty(propName, defaultVal) || defaultVal;
     },
 
     type: 'UserPhoneInfoAjax'
@@ -380,8 +382,13 @@ UserPhoneInfoAjax.prototype = Object.extendsObject(AbstractAjaxProcessor, {
        3. UI Action  (sys_ui_action)
        Table:  incident
        Type:   Client script / Form button
-       Paste the script from ui_action.js into the Script field,
-       or import this update set which includes it here.
+       For Service Operations Workspace: if surfaced as a Contextual
+       Action rather than a form button, move the g_modal.showFrame()
+       call into the appropriate workspace action handler.
+
+       sys_property to create before using:
+         Name:  your.incident.caller_field
+         Value: caller_id   (or whatever field holds the caller sys_id)
        ================================================================ -->
   <sys_ui_action action="INSERT_OR_UPDATE">
     <sys_id>3d0e5c2f6b4a9f1e3c5d7b9e1f3a5c7e</sys_id>
@@ -401,19 +408,27 @@ UserPhoneInfoAjax.prototype = Object.extendsObject(AbstractAjaxProcessor, {
     <list_banner_button>false</list_banner_button>
     <onclick/>
     <condition/>
-    <script><![CDATA[var callerId = g_form.getValue('caller_id');
+    <script><![CDATA[var ga = new GlideAjax('UserPhoneInfoAjax');
+ga.addParam('sysparm_name',        'getSysProperty');
+ga.addParam('sysparm_prop_name',   'your.incident.caller_field');
+ga.addParam('sysparm_default_val', 'caller_id');
+ga.getXMLAnswer(function (callerFieldName) {
+    var callerId = g_form.getValue(callerFieldName);
 
-if (!callerId) {
-    g_form.addErrorMessage('This incident does not have a caller. Please set the Caller field first.');
-    return;
-}
+    if (!callerId) {
+        g_form.addErrorMessage(
+            'No caller is set on this incident. Please populate the caller field first.'
+        );
+        return;
+    }
 
-g_modal.showFrame(
-    'Caller Phone Information',
-    'user_phone_info.do?sysparm_caller_id=' + callerId,
-    700,
-    480
-);]]></script>
+    g_modal.showFrame(
+        'Caller Phone Information',
+        'user_phone_info.do?sysparm_caller_id=' + callerId,
+        700,
+        480
+    );
+});]]></script>
   </sys_ui_action>
 
 </unload>
