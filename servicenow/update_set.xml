@@ -432,20 +432,19 @@ ga.getXMLAnswer(function (callerFieldName) {
   </sys_ui_action>
 
   <!-- ================================================================
-       4. Field Decorators  (sys_uw_decorator)
+       4. UX Highlighted Values  (sys_highlight_value)
        Service Operations Workspace — incident.status colour coding.
 
-       Each record maps one value to a badge style. The workspace wraps
-       the field value in a badge whose background is bg_color and whose
-       text is font_color.
+       Each record maps one value to a background colour rendered as a
+       coloured badge/chip in the workspace around the field value.
 
        Manual path (no import needed):
-         All > Service Operations Workspace > Configuration >
-         Record Configuration > Field Decorators > New
+         All > System UI > Highlighted Values > New
+         (or navigate to sys_highlight_value.list)
        ================================================================ -->
 
   <!-- Verifying → orange #f97316 -->
-  <sys_uw_decorator action="INSERT_OR_UPDATE">
+  <sys_highlight_value action="INSERT_OR_UPDATE">
     <sys_id>6c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f</sys_id>
     <sys_created_by>admin</sys_created_by>
     <sys_created_on>2026-04-29 00:00:00</sys_created_on>
@@ -456,12 +455,11 @@ ga.getXMLAnswer(function (callerFieldName) {
     <table_name>incident</table_name>
     <field_name>status</field_name>
     <value>Verifying</value>
-    <bg_color>#f97316</bg_color>
-    <font_color>#ffffff</font_color>
-  </sys_uw_decorator>
+    <color>#f97316</color>
+  </sys_highlight_value>
 
   <!-- Verified → green #22c55e -->
-  <sys_uw_decorator action="INSERT_OR_UPDATE">
+  <sys_highlight_value action="INSERT_OR_UPDATE">
     <sys_id>7d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a</sys_id>
     <sys_created_by>admin</sys_created_by>
     <sys_created_on>2026-04-29 00:00:00</sys_created_on>
@@ -472,8 +470,7 @@ ga.getXMLAnswer(function (callerFieldName) {
     <table_name>incident</table_name>
     <field_name>status</field_name>
     <value>Verified</value>
-    <bg_color>#22c55e</bg_color>
-    <font_color>#ffffff</font_color>
-  </sys_uw_decorator>
+    <color>#22c55e</color>
+  </sys_highlight_value>
 
 </unload>
