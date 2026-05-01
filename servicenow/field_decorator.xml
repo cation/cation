@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Service Operations Workspace — Field Decorators
+  Table: sys_uw_decorator
+
+  Each record maps one field value on a table to a badge colour.
+  The workspace renders the field value inside a styled badge whose
+  background and text colours come from bg_color / font_color below.
+
+  Two records are required — one per status value:
+    Verifying → orange
+    Verified  → green
+
+  Manual path (alternative to importing this XML):
+    All > Service Operations Workspace > Configuration >
+    Record Configuration > Field Decorators > New
+-->
+<unload unload_date="2026-04-29 00:00:00">
+
+  <!-- ── Verifying → orange ──────────────────────────────────────── -->
+  <sys_uw_decorator action="INSERT_OR_UPDATE">
+    <sys_id>6c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f</sys_id>
+    <sys_created_by>admin</sys_created_by>
+    <sys_created_on>2026-04-29 00:00:00</sys_created_on>
+    <sys_updated_by>admin</sys_updated_by>
+    <sys_updated_on>2026-04-29 00:00:00</sys_updated_on>
+    <name>Incident Status - Verifying</name>
+    <active>true</active>
+    <table_name>incident</table_name>
+    <field_name>status</field_name>
+    <value>Verifying</value>
+    <bg_color>#f97316</bg_color>
+    <font_color>#ffffff</font_color>
+  </sys_uw_decorator>
+
+  <!-- ── Verified → green ───────────────────────────────────────── -->
+  <sys_uw_decorator action="INSERT_OR_UPDATE">
+    <sys_id>7d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a</sys_id>
+    <sys_created_by>admin</sys_created_by>
+    <sys_created_on>2026-04-29 00:00:00</sys_created_on>
+    <sys_updated_by>admin</sys_updated_by>
+    <sys_updated_on>2026-04-29 00:00:00</sys_updated_on>
+    <name>Incident Status - Verified</name>
+    <active>true</active>
+    <table_name>incident</table_name>
+    <field_name>status</field_name>
+    <value>Verified</value>
+    <bg_color>#22c55e</bg_color>
+    <font_color>#ffffff</font_color>
+  </sys_uw_decorator>
+
+</unload>
